@@ -25,8 +25,9 @@ def main(ctx, config_path):
 @click.option("--project", default="SAT", help="JIRA project key (default: SAT)")
 @click.option("--team-triage", is_flag=True, help="Run Team Triage instead of Program Triage")
 @click.option("--quick", is_flag=True, help="Use single-agent classifier instead of full debate")
+@click.option("--verbose", "-v", is_flag=True, help="Show each agent's assessment during the debate")
 @click.pass_context
-def triage(ctx, issues, project, team_triage, quick):
+def triage(ctx, issues, project, team_triage, quick, verbose):
     """Triage JIRA issues.
 
     Pass issue keys (e.g. SAT-12345) to triage specific issues,
@@ -89,7 +90,37 @@ def triage(ctx, issues, project, team_triage, quick):
             item_checks = validate_issue(item)
             click.echo(click.style(f"\nStarting multi-agent debate for {item.key}...", bold=True))
             result = run_debate(item, item_checks, components, on_update=click.echo)
+            if verbose:
+                _display_rounds(result)
             _display_result(item, result)
+
+
+def _display_agent_assessment(role: str, assessment: dict):
+    click.echo(f"    {click.style(role, bold=True)}:")
+    click.echo(f"      Severity: {assessment.get('severity')} — {assessment.get('severity_reasoning', '')}")
+    click.echo(f"      Priority: {assessment.get('priority')} — {assessment.get('priority_reasoning', '')}")
+    click.echo(f"      Component: {assessment.get('component')} — {assessment.get('component_reasoning', '')}")
+    click.echo(f"      Regression: {assessment.get('is_regression')} — {assessment.get('regression_reasoning', '')}")
+    click.echo(f"      Security: {'Yes' if assessment.get('is_security') else 'No'}")
+    if assessment.get("need_info_from"):
+        click.echo(f"      Need info from: {assessment['need_info_from']} — {assessment.get('need_info_reasoning', '')}")
+    click.echo(f"      Summary: {assessment.get('summary', '')}")
+    click.echo()
+
+
+def _display_rounds(result: dict):
+    round1 = result.get("round1", {})
+    round2 = result.get("round2", {})
+
+    if round1:
+        click.echo(click.style("\n  Round 1 — Initial assessments:", bold=True))
+        for role, assessment in round1.items():
+            _display_agent_assessment(role, assessment)
+
+    if round2:
+        click.echo(click.style("  Round 2 — After debate:", bold=True))
+        for role, assessment in round2.items():
+            _display_agent_assessment(role, assessment)
 
 
 def _display_result(issue: TriageIssue, result: dict):

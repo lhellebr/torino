@@ -125,9 +125,10 @@ Your job:
 - Flag any unresolved disagreements the human triager should review.
 
 Also write a brief JIRA comment (plain text, not JSON) to be posted on the issue explaining the triage decision. The comment should:
+- Start with "This issue was triaged by an AI-assisted tool (Torino)." on its own line.
 - State the key classification decisions and the most important reasons behind them.
 - Mention any notable uncertainties or disagreements.
-- Be concise (3-6 sentences).
+- Be concise (3-6 sentences after the opening line).
 
 Respond with ONLY a JSON object matching this schema, no other text:
 {{

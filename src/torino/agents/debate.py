@@ -118,4 +118,7 @@ def run_debate(
             role, config, round1[role], round1, on_update,
         )
 
-    return _run_synthesis(issue_context, round2, on_update)
+    result = _run_synthesis(issue_context, round2, on_update)
+    result["round1"] = round1
+    result["round2"] = round2
+    return result
