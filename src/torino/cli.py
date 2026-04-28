@@ -89,9 +89,11 @@ def triage(ctx, issues, project, team_triage, quick, verbose):
         for item in items:
             item_checks = validate_issue(item)
             click.echo(click.style(f"\nStarting multi-agent debate for {item.key}...", bold=True))
-            result = run_debate(item, item_checks, components, on_update=click.echo)
-            if verbose:
-                _display_rounds(result)
+            result = run_debate(
+                item, item_checks, components,
+                on_update=click.echo,
+                on_assessment=_display_agent_assessment if verbose else None,
+            )
             _display_result(item, result)
 
 
@@ -107,20 +109,6 @@ def _display_agent_assessment(role: str, assessment: dict):
     click.echo(f"      Summary: {assessment.get('summary', '')}")
     click.echo()
 
-
-def _display_rounds(result: dict):
-    round1 = result.get("round1", {})
-    round2 = result.get("round2", {})
-
-    if round1:
-        click.echo(click.style("\n  Round 1 — Initial assessments:", bold=True))
-        for role, assessment in round1.items():
-            _display_agent_assessment(role, assessment)
-
-    if round2:
-        click.echo(click.style("  Round 2 — After debate:", bold=True))
-        for role, assessment in round2.items():
-            _display_agent_assessment(role, assessment)
 
 
 def _display_result(issue: TriageIssue, result: dict):

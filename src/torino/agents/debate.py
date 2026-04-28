@@ -105,18 +105,23 @@ def run_debate(
     checks: list[Check],
     components: list[str],
     on_update=None,
+    on_assessment=None,
 ) -> dict:
     issue_context = _format_issue_context(issue, checks, components)
 
     round1 = {}
     for role, config in AGENT_ROLES.items():
         round1[role] = _run_round1(role, config, issue_context, on_update)
+        if on_assessment:
+            on_assessment(role, round1[role])
 
     round2 = {}
     for role, config in AGENT_ROLES.items():
         round2[role] = _run_debate_round(
             role, config, round1[role], round1, on_update,
         )
+        if on_assessment:
+            on_assessment(role, round2[role])
 
     result = _run_synthesis(issue_context, round2, on_update)
     result["round1"] = round1
