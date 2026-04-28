@@ -24,8 +24,9 @@ def main(ctx, config_path):
 @click.argument("issues", nargs=-1)
 @click.option("--project", default="SAT", help="JIRA project key (default: SAT)")
 @click.option("--team-triage", is_flag=True, help="Run Team Triage instead of Program Triage")
+@click.option("--quick", is_flag=True, help="Use single-agent classifier instead of full debate")
 @click.pass_context
-def triage(ctx, issues, project, team_triage):
+def triage(ctx, issues, project, team_triage, quick):
     """Triage JIRA issues.
 
     Pass issue keys (e.g. SAT-12345) to triage specific issues,
@@ -70,19 +71,29 @@ def triage(ctx, issues, project, team_triage):
         return
 
     from torino.jira_client import fetch_components
-    from torino.triage.classifier import classify_issue
 
     click.echo(f"Fetching components for {project}...")
     components = fetch_components(client, project)
 
-    for item in items:
-        click.echo(f"\nClassifying {item.key} via Claude Code...")
-        result = classify_issue(item, components)
-        _display_classification(item, result)
+    if quick:
+        from torino.triage.classifier import classify_issue
+
+        for item in items:
+            click.echo(f"\nClassifying {item.key} via Claude Code...")
+            result = classify_issue(item, components)
+            _display_result(item, result)
+    else:
+        from torino.agents.debate import run_debate
+
+        for item in items:
+            item_checks = validate_issue(item)
+            click.echo(click.style(f"\nStarting multi-agent debate for {item.key}...", bold=True))
+            result = run_debate(item, item_checks, components, on_update=click.echo)
+            _display_result(item, result)
 
 
-def _display_classification(issue: TriageIssue, result: dict):
-    click.echo(click.style(f"\n  AI Classification for {issue.key}:", bold=True))
+def _display_result(issue: TriageIssue, result: dict):
+    click.echo(click.style(f"\n  Triage Result for {issue.key}:", bold=True))
     click.echo(f"  {result.get('summary', '')}\n")
 
     click.echo(f"    Severity:   {result['severity']}")
@@ -102,3 +113,14 @@ def _display_classification(issue: TriageIssue, result: dict):
     if need_info:
         click.echo(click.style(f"    Need info from: {need_info}", fg="yellow"))
         click.echo(f"      → {result.get('need_info_reasoning', '')}")
+
+    disagreements = result.get("disagreements", [])
+    if disagreements:
+        click.echo(click.style("\n    Unresolved disagreements:", fg="yellow"))
+        for d in disagreements:
+            click.echo(f"      - {d}")
+
+    jira_comment = result.get("jira_comment")
+    if jira_comment:
+        click.echo(click.style("\n    Suggested JIRA comment:", bold=True))
+        click.echo(f"    {jira_comment}")

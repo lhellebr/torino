@@ -60,10 +60,8 @@ Respond with ONLY a JSON object matching this schema, no other text:
 
 def classify_issue(issue: TriageIssue, components: list[str]) -> dict:
     prompt = _build_prompt(issue, components)
-    response = ask_claude(prompt)
-    result_text = response.get("result", "")
+    result_text = ask_claude(prompt)
 
-    # The response may contain markdown code fences
     if "```" in result_text:
         result_text = result_text.split("```")[1]
         if result_text.startswith("json"):
