@@ -2,6 +2,11 @@
 
 Multi-agentic JIRA triage tool for Red Hat Satellite. Automates the Program Triage process using Claude AI agents that debate as QE, Product Owner, and Developer.
 
+## Prerequisites
+
+- Python 3.10+
+- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) installed and configured
+
 ## Setup
 
 ```bash
@@ -16,15 +21,9 @@ pip install -e ".[dev]"
 cp config.example.yaml config.yaml
 ```
 
-Edit `config.yaml` with your credentials:
-- **JIRA token**: personal access token for issues.redhat.com
-- **Vertex AI**: GCP project ID (requires `gcloud auth application-default login`)
+Edit `config.yaml` with your JIRA credentials (email and API token).
 
-### Google Cloud authentication
-
-```bash
-gcloud auth application-default login
-```
+Claude Code must be installed and authenticated separately (e.g. via Vertex AI with `gcloud auth`).
 
 ## Usage
 

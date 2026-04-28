@@ -3,6 +3,7 @@ from pathlib import Path
 import click
 
 from torino.config import load_config
+from torino.models import TriageIssue
 
 
 @click.group()
@@ -66,5 +67,38 @@ def triage(ctx, issues, project, team_triage):
 
     if team_triage:
         click.echo("Team Triage mode — not yet implemented.")
-    else:
-        click.echo("Program Triage mode — not yet implemented.")
+        return
+
+    from torino.jira_client import fetch_components
+    from torino.triage.classifier import classify_issue
+
+    click.echo(f"Fetching components for {project}...")
+    components = fetch_components(client, project)
+
+    for item in items:
+        click.echo(f"\nClassifying {item.key} via Claude Code...")
+        result = classify_issue(item, components)
+        _display_classification(item, result)
+
+
+def _display_classification(issue: TriageIssue, result: dict):
+    click.echo(click.style(f"\n  AI Classification for {issue.key}:", bold=True))
+    click.echo(f"  {result.get('summary', '')}\n")
+
+    click.echo(f"    Severity:   {result['severity']}")
+    click.echo(f"      → {result['severity_reasoning']}")
+    click.echo(f"    Priority:   {result['priority']}")
+    click.echo(f"      → {result['priority_reasoning']}")
+    click.echo(f"    Component:  {result['component']}")
+    click.echo(f"      → {result['component_reasoning']}")
+    click.echo(f"    Regression: {result['is_regression']}")
+    click.echo(f"      → {result['regression_reasoning']}")
+    click.echo(f"    Security:   {'Yes' if result['is_security'] else 'No'}")
+
+    if result.get("labels"):
+        click.echo(f"    Labels:     {', '.join(result['labels'])}")
+
+    need_info = result.get("need_info_from")
+    if need_info:
+        click.echo(click.style(f"    Need info from: {need_info}", fg="yellow"))
+        click.echo(f"      → {result.get('need_info_reasoning', '')}")

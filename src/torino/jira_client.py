@@ -64,6 +64,11 @@ def fetch_untriaged(client: JIRA, project: str, server: str) -> list[TriageIssue
     return [issue_to_model(issue, server) for issue in results]
 
 
+def fetch_components(client: JIRA, project: str) -> list[str]:
+    components = client.project_components(project)
+    return sorted(c.name for c in components)
+
+
 def _parse_regression_from_description(description: str | None) -> str | None:
     if not description:
         return None
