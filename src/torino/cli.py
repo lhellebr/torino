@@ -48,15 +48,20 @@ def triage(ctx, issues, project, team_triage):
         click.echo("No issues to triage.")
         return
 
+    from torino.triage.validators import validate_issue
+
     click.echo(f"Found {len(items)} issue(s) to triage:\n")
     for item in items:
         click.echo(f"  {item.key}: {item.summary}")
-        click.echo(f"    Type: {item.issue_type}  Status: {item.status}")
-        click.echo(f"    Priority: {item.priority}  Severity: {item.severity}")
-        click.echo(f"    Components: {', '.join(item.components) or 'none'}")
-        click.echo(f"    Labels: {', '.join(item.labels) or 'none'}")
-        click.echo(f"    Regression field: {item.regression}")
-        click.echo(f"    Regression (from description): {item.regression_from_description}")
+        checks = validate_issue(item)
+        for check in checks:
+            if check.status == "ok":
+                tag = click.style("[OK]     ", fg="green")
+            elif check.status == "warning":
+                tag = click.style("[WARNING]", fg="yellow")
+            else:
+                tag = click.style("[MISSING]", fg="red")
+            click.echo(f"    {tag} {check.field}: {check.message}")
         click.echo()
 
     if team_triage:
