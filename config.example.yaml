@@ -1,0 +1,9 @@
+jira:
+  server: https://your-instance.atlassian.net
+  email: YOUR_EMAIL
+  api_token: YOUR_JIRA_API_TOKEN
+
+claude:
+  # GCP project with Vertex AI API enabled
+  vertex_project_id: YOUR_GCP_PROJECT_ID
+  vertex_region: global
