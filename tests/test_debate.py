@@ -81,6 +81,25 @@ class TestFormatIssueContext:
         assert "[MISSING] Priority" in context
         assert "[OK] Component" in context
         assert "Hosts" in context
+        assert "New" in context
+        assert "testuser" in context
+        assert "unassigned" in context
+
+    def test_contains_version_fields(self):
+        issue = _make_issue()
+        issue.affects_versions = ["6.14.0", "6.15.0"]
+        issue.fix_versions = ["6.16.0"]
+        context = _format_issue_context(issue, [], ["Authentication"])
+
+        assert "6.14.0" in context
+        assert "6.15.0" in context
+        assert "6.16.0" in context
+
+    def test_empty_versions(self):
+        issue = _make_issue()
+        context = _format_issue_context(issue, [], ["Authentication"])
+        assert "Affects versions: none" in context
+        assert "Fix versions: none" in context
 
     def test_empty_components(self):
         issue = _make_issue()

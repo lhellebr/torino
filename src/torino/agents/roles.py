@@ -1,5 +1,6 @@
 ISSUE_CONTEXT = """Issue key: {key}
 Type: {issue_type}
+Status: {status}
 Summary: {summary}
 
 Current field values:
@@ -8,8 +9,11 @@ Current field values:
 - Severity: {severity}
 - Regression field: {regression}
 - Regression from description: {regression_from_description}
+- Affects versions: {affects_versions}
+- Fix versions: {fix_versions}
 - Labels: {labels}
 - Reporter: {reporter}
+- Assignee: {assignee}
 
 Description:
 {description}

@@ -37,11 +37,15 @@ Current field values (may be incomplete or wrong):
 - Severity: {issue.severity or "not set"}
 - Regression field: {issue.regression or "not set"}
 - Regression from description: {issue.regression_from_description or "not mentioned"}
+- Affects versions: {", ".join(issue.affects_versions) or "none"}
+- Fix versions: {", ".join(issue.fix_versions) or "none"}
 - Labels: {", ".join(issue.labels) or "none"}
 - Reporter: {issue.reporter or "unknown"}
+- Assignee: {issue.assignee or "unassigned"}
 
 Issue key: {issue.key}
 Type: {issue.issue_type}
+Status: {issue.status}
 Summary: {issue.summary}
 
 Description:
