@@ -26,8 +26,9 @@ def main(ctx, config_path):
 @click.option("--team-triage", is_flag=True, help="Run Team Triage instead of Program Triage")
 @click.option("--quick", is_flag=True, help="Use single-agent classifier instead of full debate")
 @click.option("--verbose", "-v", is_flag=True, help="Show each agent's assessment during the debate")
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation prompt and apply changes immediately")
 @click.pass_context
-def triage(ctx, issues, project, team_triage, quick, verbose):
+def triage(ctx, issues, project, team_triage, quick, verbose, yes):
     """Triage JIRA issues.
 
     Pass issue keys (e.g. SAT-12345) to triage specific issues,
@@ -83,6 +84,7 @@ def triage(ctx, issues, project, team_triage, quick, verbose):
             click.echo(f"\nClassifying {item.key} via Claude Code...")
             result = classify_issue(item, components)
             _display_result(item, result)
+            _confirm_and_apply(client, item, result, auto_yes=yes)
     else:
         from torino.agents.debate import run_debate
 
@@ -95,6 +97,7 @@ def triage(ctx, issues, project, team_triage, quick, verbose):
                 on_assessment=_display_agent_assessment if verbose else None,
             )
             _display_result(item, result)
+            _confirm_and_apply(client, item, result, auto_yes=yes)
 
 
 def _display_agent_assessment(role: str, assessment: dict):
@@ -143,3 +146,20 @@ def _display_result(issue: TriageIssue, result: dict):
     if jira_comment:
         click.echo(click.style("\n    Suggested JIRA comment:", bold=True))
         click.echo(f"    {jira_comment}")
+
+
+def _confirm_and_apply(client, issue: TriageIssue, result: dict, auto_yes: bool = False):
+    from torino.jira_client import apply_triage
+
+    click.echo()
+    if not auto_yes and not click.confirm(f"  Apply these changes to {issue.key}?"):
+        click.echo("  Skipped.")
+        return
+
+    try:
+        actions = apply_triage(client, issue.key, result)
+        click.echo(click.style(f"\n  Applied to {issue.key}:", fg="green"))
+        for action in actions:
+            click.echo(f"    - {action}")
+    except Exception as e:
+        click.echo(click.style(f"\n  Failed to apply: {e}", fg="red"))

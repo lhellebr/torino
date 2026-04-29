@@ -1,5 +1,8 @@
 import json
+import shutil
 import subprocess
+
+CLAUDE_BIN = shutil.which("claude") or "claude"
 
 
 def ask_claude(
@@ -7,7 +10,7 @@ def ask_claude(
     allowed_tools: list[str] | None = None,
     timeout: int = 180,
 ) -> str:
-    cmd = ["claude", "-p", "--output-format", "json"]
+    cmd = [CLAUDE_BIN, "-p", "--output-format", "json"]
     if allowed_tools:
         cmd.extend(["--allowedTools", ",".join(allowed_tools)])
     cmd.append("-")

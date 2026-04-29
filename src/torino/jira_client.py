@@ -5,8 +5,9 @@ from jira import JIRA
 from torino.config import JiraConfig
 from torino.models import TriageIssue
 
-FIELD_SEVERITY = "customfield_10840"
-FIELD_REGRESSION = "customfield_10623"
+FIELD_SEVERITY = "customfield_10840"  # Severity (option: Critical/Important/Moderate/Low)
+FIELD_REGRESSION = "customfield_10623"  # Regression (option: Yes/No)
+FIELD_NEED_INFO_FROM = "customfield_10482"  # Need Info From (multi-user picker)
 
 
 def connect(config: JiraConfig) -> JIRA:
@@ -67,6 +68,64 @@ def fetch_untriaged(client: JIRA, project: str, server: str) -> list[TriageIssue
 def fetch_components(client: JIRA, project: str) -> list[str]:
     components = client.project_components(project)
     return sorted(c.name for c in components)
+
+
+def apply_triage(client: JIRA, issue_key: str, result: dict) -> list[str]:
+    """Apply triage result to a JIRA issue. Returns list of actions taken."""
+    actions = []
+    fields = {}
+
+    if result.get("severity"):
+        fields[FIELD_SEVERITY] = {"value": result["severity"]}
+        actions.append(f"Set severity to {result['severity']}")
+
+    if result.get("priority"):
+        fields["priority"] = {"name": result["priority"]}
+        actions.append(f"Set priority to {result['priority']}")
+
+    if result.get("is_regression"):
+        fields[FIELD_REGRESSION] = {"value": result["is_regression"]}
+        actions.append(f"Set regression to {result['is_regression']}")
+
+    if result.get("component"):
+        fields["components"] = [{"name": result["component"]}]
+        actions.append(f"Set component to {result['component']}")
+
+    if result.get("need_info_from"):
+        user = _resolve_user(client, result["need_info_from"])
+        if user:
+            fields[FIELD_NEED_INFO_FROM] = [{"accountId": user["accountId"]}]
+            actions.append(f"Set Need Info From to {user['displayName']}")
+        else:
+            actions.append(f"Could not resolve user: {result['need_info_from']}")
+
+    if fields:
+        issue = client.issue(issue_key)
+        issue.update(fields=fields)
+
+    labels_to_add = list(result.get("labels", []))
+    if "triaged" not in labels_to_add:
+        labels_to_add.append("triaged")
+    issue = client.issue(issue_key)
+    for label in labels_to_add:
+        if label not in issue.fields.labels:
+            issue.fields.labels.append(label)
+            actions.append(f"Added label '{label}'")
+    issue.update(fields={"labels": issue.fields.labels})
+
+    comment = result.get("jira_comment")
+    if comment:
+        client.add_comment(issue_key, comment)
+        actions.append("Posted triage comment")
+
+    return actions
+
+
+def _resolve_user(client: JIRA, query: str) -> dict | None:
+    users = client.search_users(query=query, maxResults=1)
+    if users:
+        return {"accountId": users[0].accountId, "displayName": str(users[0])}
+    return None
 
 
 def _parse_regression_from_description(description: str | None) -> str | None:
