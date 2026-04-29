@@ -25,6 +25,8 @@ export ANTHROPIC_VERTEX_PROJECT_ID=your-gcp-project-id
 gcloud auth application-default login
 ```
 
+For best results, run `claude`, type `/model` and select `Opus 4.6 (1M context)`.
+
 Verify it works:
 
 ```bash
