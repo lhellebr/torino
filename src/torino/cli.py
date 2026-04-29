@@ -27,8 +27,9 @@ def main(ctx, config_path):
 @click.option("--quick", is_flag=True, help="Use single-agent classifier instead of full debate")
 @click.option("--verbose", "-v", is_flag=True, help="Show each agent's assessment during the debate")
 @click.option("--yes", "-y", is_flag=True, help="Skip confirmation prompt and apply changes immediately")
+@click.option("--limit", default=5, help="Max untriaged issues to fetch (default: 5)")
 @click.pass_context
-def triage(ctx, issues, project, team_triage, quick, verbose, yes):
+def triage(ctx, issues, project, team_triage, quick, verbose, yes, limit):
     """Triage JIRA issues.
 
     Pass issue keys (e.g. SAT-12345) to triage specific issues,
@@ -46,7 +47,13 @@ def triage(ctx, issues, project, team_triage, quick, verbose, yes):
         items = fetch_issues(client, list(issues), config.jira.server)
     else:
         click.echo(f"Searching for untriaged issues in {project}...")
-        items = fetch_untriaged(client, project, config.jira.server)
+        items, total = fetch_untriaged(client, project, config.jira.server, limit=limit)
+        if total > limit:
+            click.echo(click.style(
+                f"  Warning: showing {limit} of {total} untriaged issues. "
+                f"Use --limit to increase.",
+                fg="yellow",
+            ))
 
     if not items:
         click.echo("No issues to triage.")

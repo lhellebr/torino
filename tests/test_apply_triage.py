@@ -72,6 +72,18 @@ class TestApplyTriage:
         assert fields[FIELD_NEED_INFO_FROM] == [{"accountId": "abc123"}]
         assert any("Need Info From" in a for a in actions)
 
+    def test_need_info_skips_triaged_label(self):
+        client, issue = _mock_client()
+        mock_user = MagicMock()
+        mock_user.accountId = "abc123"
+        mock_user.__str__ = lambda s: "John Doe"
+        client.search_users.return_value = [mock_user]
+        result = {"need_info_from": "jdoe"}
+
+        actions = apply_triage(client, "SAT-99999", result)
+
+        assert "triaged" not in issue.fields.labels
+
     def test_need_info_from_user_not_found(self):
         client, issue = _mock_client()
         client.search_users.return_value = []

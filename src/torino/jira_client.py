@@ -53,16 +53,18 @@ def fetch_issues(client: JIRA, keys: list[str], server: str) -> list[TriageIssue
     return issues
 
 
-def fetch_untriaged(client: JIRA, project: str, server: str) -> list[TriageIssue]:
+def fetch_untriaged(client: JIRA, project: str, server: str, limit: int = 5) -> tuple[list[TriageIssue], int]:
     jql = (
         f'project = {project} '
-        f'AND labels not in (triaged) '
+        f'AND (labels is EMPTY OR labels not in (triaged)) '
         f'AND status != Closed '
-        f'AND labels not in (NEEDINFO) '
+        f'AND "{FIELD_NEED_INFO_FROM}" is EMPTY '
         f'ORDER BY created DESC'
     )
-    results = client.search_issues(jql, maxResults=50)
-    return [issue_to_model(issue, server) for issue in results]
+    count_results = client.search_issues(jql, maxResults=0)
+    total = count_results.total
+    results = client.search_issues(jql, maxResults=limit)
+    return [issue_to_model(issue, server) for issue in results], total
 
 
 def search_similar(
@@ -173,7 +175,7 @@ def apply_triage(client: JIRA, issue_key: str, result: dict) -> list[str]:
         issue.update(fields=fields)
 
     labels_to_add = list(result.get("labels", []))
-    if "triaged" not in labels_to_add:
+    if not result.get("need_info_from") and "triaged" not in labels_to_add:
         labels_to_add.append("triaged")
     issue = client.issue(issue_key)
     for label in labels_to_add:
