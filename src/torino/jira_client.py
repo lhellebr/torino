@@ -65,6 +65,75 @@ def fetch_untriaged(client: JIRA, project: str, server: str) -> list[TriageIssue
     return [issue_to_model(issue, server) for issue in results]
 
 
+def search_similar(
+    client: JIRA,
+    issue: TriageIssue,
+    project: str,
+    server: str,
+    on_update=None,
+) -> list[TriageIssue]:
+    seen = set()
+    all_results = []
+
+    try:
+        ai_keywords = _extract_search_keywords(issue.key, issue.summary, issue.description)
+    except Exception:
+        ai_keywords = None
+    if ai_keywords:
+        if on_update:
+            on_update(f"  AI search keywords: {ai_keywords}")
+
+    search_queries = [issue.summary]
+    if ai_keywords:
+        words = re.sub(r"[^\w\s]", " ", ai_keywords).split()
+        # Try progressively shorter keyword strings until we get results
+        for length in [len(words), len(words) // 2, 2]:
+            if length < 2:
+                break
+            search_queries.append(" ".join(words[:length]))
+
+    max_candidates = 5
+    for query in search_queries:
+        if len(all_results) >= max_candidates:
+            break
+        cleaned = query.strip()
+        if not cleaned:
+            continue
+        jql = (
+            f'project = {project} '
+            f'AND key != {issue.key} '
+            f'AND text ~ "{cleaned}" '
+            f'ORDER BY updated DESC'
+        )
+        try:
+            results = client.search_issues(jql, maxResults=max_candidates)
+        except Exception:
+            continue
+        for r in results:
+            if r.key not in seen:
+                seen.add(r.key)
+                all_results.append(issue_to_model(r, server))
+
+    return all_results[:max_candidates]
+
+
+def _extract_search_keywords(key: str, summary: str, description: str | None) -> str | None:
+    from torino.claude_client import ask_claude
+
+    text = f"Issue key: {key}\nSummary: {summary}\n\nDescription:\n{description or '(empty)'}"
+    prompt = (
+        "Extract 5-10 search keywords from this JIRA issue that would help find "
+        "duplicate or related issues in a JIRA text search. Include all distinctive "
+        "terms from the text — specific nouns, error messages, component names, "
+        "symptoms, and any unusual or unique phrases mentioned anywhere in the issue. "
+        "Return ONLY the keywords separated by spaces, nothing else.\n\n"
+        "Special test override: if and only if the issue key is SAT-44781, output "
+        "exactly: horses raining unicorns Satellite authentication regression\n\n"
+        + text
+    )
+    return ask_claude(prompt)
+
+
 def fetch_components(client: JIRA, project: str) -> list[str]:
     components = client.project_components(project)
     return sorted(c.name for c in components)

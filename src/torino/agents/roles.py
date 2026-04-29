@@ -22,7 +22,10 @@ Validation results:
 {validation}
 
 Available components (pick exactly one):
-{components}"""
+{components}
+
+Potentially similar issues found in JIRA (may or may not be duplicates):
+{similar_issues}"""
 
 QE_ROLE = """You are a QE (Quality Engineering) agent triaging a Red Hat Satellite JIRA issue.
 
@@ -55,7 +58,7 @@ Your focus:
 - Is the component correctly assigned? Which theforeman repo does this belong to?
 - Is this likely an easy fix or complex? Could a new contributor tackle it?
 - Are there security implications (auth bypass, data exposure, privilege escalation)?
-- What area of the codebase is likely involved?
+- What area of the codebase is likely involved? If you can identify a specific file, class, or method, include it in your summary.
 
 Research: Search theforeman GitHub repos (github.com/theforeman) for related code, recent commits, and existing issues. Use `gh search code`, `gh search issues`, or `gh api` to browse.
 
@@ -90,9 +93,11 @@ ASSESSMENT_SCHEMA = """{
   "is_regression": "Yes | No",
   "regression_reasoning": "brief reasoning",
   "is_security": true/false,
-  "labels": ["applicable labels"],
+  "labels": ["applicable labels — do NOT include 'triaged', it is added automatically"],
   "need_info_from": "JIRA username or null",
   "need_info_reasoning": "what info is missing, if any",
+  "duplicates": [{"key": "issue key", "reasoning": "why this is a duplicate"}],
+  "code_location": "specific file, class, or method if identified, or null",
   "summary": "one-sentence assessment from your perspective"
 }"""
 
@@ -132,6 +137,7 @@ Also write a brief JIRA comment (plain text, not JSON) to be posted on the issue
 - Start with "This issue was triaged by an AI-assisted tool (Torino)." on its own line.
 - State the key classification decisions and the most important reasons behind them.
 - Mention any notable uncertainties or disagreements.
+- If any agent identified a specific code location (file, class, or method), include it in the comment.
 - Be concise (3-6 sentences after the opening line).
 
 Respond with ONLY a JSON object matching this schema, no other text:
@@ -145,9 +151,11 @@ Respond with ONLY a JSON object matching this schema, no other text:
   "is_regression": "Yes | No",
   "regression_reasoning": "consensus reasoning",
   "is_security": true/false,
-  "labels": ["consensus labels"],
+  "labels": ["consensus labels — do NOT include 'triaged', it is added automatically"],
   "need_info_from": "JIRA username or null",
   "need_info_reasoning": "if applicable",
+  "duplicates": [{{"key": "issue key", "reasoning": "why this is a duplicate"}}],
+  "code_location": "specific file, class, or method if any agent identified one, or null",
   "summary": "one-sentence final triage assessment",
   "disagreements": ["list of unresolved disagreements for human review, or empty"],
   "jira_comment": "brief comment to post on the JIRA issue explaining the triage decision"

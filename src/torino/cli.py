@@ -72,7 +72,7 @@ def triage(ctx, issues, project, team_triage, quick, verbose, yes):
         click.echo("Team Triage mode — not yet implemented.")
         return
 
-    from torino.jira_client import fetch_components
+    from torino.jira_client import fetch_components, search_similar
 
     click.echo(f"Fetching components for {project}...")
     components = fetch_components(client, project)
@@ -90,9 +90,13 @@ def triage(ctx, issues, project, team_triage, quick, verbose, yes):
 
         for item in items:
             item_checks = validate_issue(item)
+            click.echo(f"\nSearching for similar issues to {item.key}...")
+            similar = search_similar(client, item, project, config.jira.server, on_update=click.echo)
+            click.echo(f"  Found {len(similar)} candidate(s).")
             click.echo(click.style(f"\nStarting multi-agent debate for {item.key}...", bold=True))
             result = run_debate(
                 item, item_checks, components,
+                similar=similar,
                 on_update=click.echo,
                 on_assessment=_display_agent_assessment if verbose else None,
             )
@@ -131,6 +135,9 @@ def _display_result(issue: TriageIssue, result: dict):
     if result.get("labels"):
         click.echo(f"    Labels:     {', '.join(result['labels'])}")
 
+    if result.get("code_location"):
+        click.echo(f"    Code:       {result['code_location']}")
+
     need_info = result.get("need_info_from")
     if need_info:
         click.echo(click.style(f"    Need info from: {need_info}", fg="yellow"))
@@ -150,6 +157,12 @@ def _display_result(issue: TriageIssue, result: dict):
 
 def _confirm_and_apply(client, issue: TriageIssue, result: dict, auto_yes: bool = False):
     from torino.jira_client import apply_triage
+
+    duplicates = result.get("duplicates", [])
+    if duplicates:
+        click.echo(click.style("\n  POSSIBLE DUPLICATES — action required:", fg="red", bold=True))
+        for dup in duplicates:
+            click.echo(click.style(f"    {dup['key']}", fg="red", bold=True) + f": {dup['reasoning']}")
 
     click.echo()
     if not auto_yes and not click.confirm(f"  Apply these changes to {issue.key}?"):

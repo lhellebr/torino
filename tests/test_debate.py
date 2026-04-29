@@ -1,7 +1,7 @@
 import json
 from unittest.mock import patch
 
-from torino.agents.debate import _format_issue_context, _parse_json, run_debate
+from torino.agents.debate import _format_issue_context, _format_similar_issues, _parse_json, run_debate
 from torino.models import TriageIssue
 from torino.triage.validators import Check
 
@@ -40,14 +40,38 @@ SAMPLE_ASSESSMENT = {
     "labels": [],
     "need_info_from": None,
     "need_info_reasoning": "",
+    "duplicates": [],
+    "code_location": None,
     "summary": "Auth regression",
 }
 
 SAMPLE_SYNTHESIS = {
     **SAMPLE_ASSESSMENT,
     "disagreements": [],
+    "code_location": None,
     "jira_comment": "This issue was triaged by an AI-assisted tool (Torino). Auth regression.",
 }
+
+
+def _make_similar_issue(key="SAT-11111", summary="Similar issue"):
+    return TriageIssue(
+        key=key,
+        summary=summary,
+        description="This also seems broken",
+        issue_type="Bug",
+        status="Open",
+        priority="Major",
+        severity=None,
+        components=["Authentication"],
+        labels=[],
+        fix_versions=[],
+        affects_versions=[],
+        regression=None,
+        regression_from_description=None,
+        reporter="otheruser",
+        assignee=None,
+        url=f"https://example.atlassian.net/browse/{key}",
+    )
 
 
 class TestParseJson:
@@ -101,11 +125,59 @@ class TestFormatIssueContext:
         assert "Affects versions: none" in context
         assert "Fix versions: none" in context
 
+    def test_contains_similar_issues(self):
+        issue = _make_issue()
+        similar = [
+            _make_similar_issue("SAT-11111", "Login fails after upgrade"),
+            _make_similar_issue("SAT-22222", "Auth broken on LDAP"),
+        ]
+        context = _format_issue_context(issue, [], ["Authentication"], similar)
+
+        assert "SAT-11111" in context
+        assert "Login fails after upgrade" in context
+        assert "SAT-22222" in context
+        assert "Auth broken on LDAP" in context
+
+    def test_no_similar_issues(self):
+        issue = _make_issue()
+        context = _format_issue_context(issue, [], ["Authentication"], similar=[])
+        assert "(none found)" in context
+
     def test_empty_components(self):
         issue = _make_issue()
         issue.components = []
         context = _format_issue_context(issue, [], ["Authentication"])
         assert "not set" in context
+
+
+class TestFormatSimilarIssues:
+    def test_empty_list(self):
+        assert _format_similar_issues([]) == "(none found)"
+
+    def test_includes_key_and_summary(self):
+        similar = [_make_similar_issue("SAT-11111", "Login fails")]
+        result = _format_similar_issues(similar)
+        assert "SAT-11111" in result
+        assert "Login fails" in result
+
+    def test_includes_status(self):
+        similar = [_make_similar_issue()]
+        result = _format_similar_issues(similar)
+        assert "[Open]" in result
+
+    def test_includes_description_preview(self):
+        similar = [_make_similar_issue()]
+        result = _format_similar_issues(similar)
+        assert "This also seems broken" in result
+
+    def test_multiple_issues(self):
+        similar = [
+            _make_similar_issue("SAT-11111", "First issue"),
+            _make_similar_issue("SAT-22222", "Second issue"),
+        ]
+        result = _format_similar_issues(similar)
+        assert "SAT-11111" in result
+        assert "SAT-22222" in result
 
 
 class TestRunDebate:
@@ -180,3 +252,60 @@ class TestRunDebate:
 
         assert "jira_comment" in result
         assert "Torino" in result["jira_comment"]
+
+    @patch("torino.agents.debate.ask_claude")
+    def test_similar_issues_passed_to_debate(self, mock_claude):
+        mock_claude.return_value = json.dumps(SAMPLE_ASSESSMENT)
+
+        issue = _make_issue()
+        similar = [_make_similar_issue("SAT-11111", "Login fails")]
+        run_debate(issue, [], ["Authentication"], similar=similar)
+
+        first_prompt = mock_claude.call_args_list[0][0][0]
+        assert "SAT-11111" in first_prompt
+        assert "Login fails" in first_prompt
+
+    @patch("torino.agents.debate.ask_claude")
+    def test_result_with_duplicates(self, mock_claude):
+        synthesis_with_dup = {
+            **SAMPLE_SYNTHESIS,
+            "duplicates": [{"key": "SAT-11111", "reasoning": "Same auth failure"}],
+        }
+        mock_claude.return_value = json.dumps(synthesis_with_dup)
+
+        issue = _make_issue()
+        result = run_debate(issue, [], ["Authentication"])
+
+        assert len(result["duplicates"]) == 1
+        assert result["duplicates"][0]["key"] == "SAT-11111"
+
+    @patch("torino.agents.debate.ask_claude")
+    def test_result_without_duplicates(self, mock_claude):
+        mock_claude.return_value = json.dumps(SAMPLE_SYNTHESIS)
+
+        issue = _make_issue()
+        result = run_debate(issue, [], ["Authentication"])
+
+        assert result.get("duplicates", []) == []
+
+    @patch("torino.agents.debate.ask_claude")
+    def test_result_with_code_location(self, mock_claude):
+        synthesis_with_code = {
+            **SAMPLE_SYNTHESIS,
+            "code_location": "app/models/auth_source_internal.rb#authenticate",
+        }
+        mock_claude.return_value = json.dumps(synthesis_with_code)
+
+        issue = _make_issue()
+        result = run_debate(issue, [], ["Authentication"])
+
+        assert result["code_location"] == "app/models/auth_source_internal.rb#authenticate"
+
+    @patch("torino.agents.debate.ask_claude")
+    def test_result_without_code_location(self, mock_claude):
+        mock_claude.return_value = json.dumps(SAMPLE_SYNTHESIS)
+
+        issue = _make_issue()
+        result = run_debate(issue, [], ["Authentication"])
+
+        assert result.get("code_location") is None

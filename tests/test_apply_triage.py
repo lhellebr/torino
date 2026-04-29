@@ -90,6 +90,16 @@ class TestApplyTriage:
         assert "triaged" in issue.fields.labels
         assert any("triaged" in a for a in actions)
 
+    def test_triaged_added_even_when_agents_omit_it(self):
+        client, issue = _mock_client()
+        result = {"labels": ["Security", "Regression"]}
+
+        actions = apply_triage(client, "SAT-99999", result)
+
+        assert "triaged" in issue.fields.labels
+        assert "Security" in issue.fields.labels
+        assert "Regression" in issue.fields.labels
+
     def test_adds_suggested_labels(self):
         client, issue = _mock_client()
         result = {"labels": ["easy-fix", "user-experience"]}

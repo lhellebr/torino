@@ -13,10 +13,24 @@ from torino.agents.roles import (
 )
 
 
+def _format_similar_issues(similar: list[TriageIssue]) -> str:
+    if not similar:
+        return "(none found)"
+    lines = []
+    for s in similar:
+        status_label = f"[{s.status}]" if s.status else ""
+        lines.append(f"- {s.key} {status_label}: {s.summary}")
+        if s.description:
+            preview = s.description[:200].replace("\n", " ")
+            lines.append(f"  Description preview: {preview}")
+    return "\n".join(lines)
+
+
 def _format_issue_context(
     issue: TriageIssue,
     checks: list[Check],
     components: list[str],
+    similar: list[TriageIssue] | None = None,
 ) -> str:
     validation_lines = []
     for c in checks:
@@ -40,6 +54,7 @@ def _format_issue_context(
         description=issue.description or "(empty)",
         validation="\n".join(validation_lines),
         components=", ".join(components),
+        similar_issues=_format_similar_issues(similar or []),
     )
 
 
@@ -108,10 +123,11 @@ def run_debate(
     issue: TriageIssue,
     checks: list[Check],
     components: list[str],
+    similar: list[TriageIssue] | None = None,
     on_update=None,
     on_assessment=None,
 ) -> dict:
-    issue_context = _format_issue_context(issue, checks, components)
+    issue_context = _format_issue_context(issue, checks, components, similar)
 
     round1 = {}
     for role, config in AGENT_ROLES.items():
