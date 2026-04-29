@@ -34,7 +34,7 @@ claude --version
 ### 2. Clone and install Torino
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/lhellebr/torino.git
 cd torino
 python -m venv .venv
 source .venv/bin/activate
