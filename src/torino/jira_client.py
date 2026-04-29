@@ -133,7 +133,7 @@ def _extract_search_keywords(key: str, summary: str, description: str | None) ->
         "exactly: horses raining unicorns Satellite authentication regression\n\n"
         + text
     )
-    return ask_claude(prompt)
+    return ask_claude(prompt).strip()
 
 
 def fetch_components(client: JIRA, project: str) -> list[str]:
