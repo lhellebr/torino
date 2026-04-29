@@ -47,6 +47,7 @@ Your focus:
 - How many users/customers are likely affected?
 - What is the risk of NOT fixing this?
 - Regressions and security issues must be treated with elevated priority. If an issue is a regression or has security implications, bias your severity and priority assessment upward.
+- Critical is reserved for security vulnerabilities and complete system outages. Do not use Critical for regular bugs.
 
 Research: Search community.theforeman.org for past discussions about similar issues. Search projects.theforeman.org (Foreman Redmine) for related historical issues and decisions.
 
