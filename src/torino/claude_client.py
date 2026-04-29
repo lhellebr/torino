@@ -8,7 +8,7 @@ CLAUDE_BIN = shutil.which("claude") or "claude"
 def ask_claude(
     prompt: str,
     allowed_tools: list[str] | None = None,
-    timeout: int = 180,
+    timeout: int = 300,
 ) -> str:
     cmd = [CLAUDE_BIN, "-p", "--output-format", "json"]
     if allowed_tools:
